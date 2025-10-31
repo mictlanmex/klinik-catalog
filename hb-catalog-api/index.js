@@ -1,2 +1,3 @@
-import "./src/health.js";
-import "./src/products.js";
+// Cargar handlers para que el runtime los registre
+require('./src/health.js');
+require('./src/products.js');
