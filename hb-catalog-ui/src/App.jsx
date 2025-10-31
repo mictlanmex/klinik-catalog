@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react'
-import logo from '/haut-logo.png'
 
 const API_BASE = import.meta.env.VITE_API_BASE
 
@@ -59,7 +58,8 @@ export default function App() {
   return (
     <div className="app">
       <header className="toolbar">
-  <img src={logo} alt="Haut Boutique" className="logo" />
+ <img src="/haut-logo.png" alt="Haut Boutique" className="logo" />
+
   <h1>Catálogo Haut Klinik</h1>
         <div className="filters">
           <input placeholder="Buscar por producto, marca o problema" value={query} onChange={e => setQuery(e.target.value)} onKeyDown={handleKeyDown} style={{minWidth: '300px'}} />
