@@ -1,3 +1,4 @@
+# mantener reglas existentes
 *.js.map
 *.ts
 .git*
@@ -8,3 +9,18 @@ getting_started.md
 node_modules/@types/
 node_modules/azure-functions-core-tools/
 node_modules/typescript/
+
+# nuevo — evitar archivos que rompen zip deploy
+**/*.log
+coverage/
+__tests__/
+tests/
+dist/
+.DS_Store
+
+# evitar incluir el frontend dentro del zip
+../hb-catalog-ui/
+hb-catalog-ui/
+
+# evitar incluir git repo dentro del zip
+.git/
