@@ -25,4 +25,3 @@ jobs:
       with:
        app-name: hb-catalog-api-7856
        package: ./hb-catalog-api
-       enable-oryx-build: true
