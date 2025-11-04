@@ -33,5 +33,7 @@ jobs:
           app_location: "hb-catalog-ui"        # 👈 carpeta del frontend
           output_location: "dist"              # 👈 salida de Vite
           api_location: ""                     # sin API aquí
+        env:
+          VITE_API_BASE: https://hb-catalog-api-7856.azurewebsites.net
           # NO pongas skip_app_build: true
           # (si lo pones, también debes proveer app_artifact_location con archivos ya compilados)
