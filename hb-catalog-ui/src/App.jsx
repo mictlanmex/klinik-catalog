@@ -22,8 +22,18 @@ export default function App() {
   async function fetchData(reset = false) {
     try {
       setLoading(true); setError('')
+
+      // Get the auth token
+      const authRes = await fetch('/.auth/me');
+      const authData = await authRes.json();
+      const token = authData.clientPrincipal.idToken;
+
       const url = `${API_BASE}/api/products?${qs}`
-      const res = await fetch(url)
+      const res = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json()
       setHasNext(!!data?.pageInfo?.hasNextPage)
