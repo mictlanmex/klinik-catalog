@@ -6,6 +6,14 @@ app.http('health', {
   authLevel: 'anonymous', // Luego lo protegemos con AAD
   route: 'health',
   handler: async (_, ctx) => {
+    // uniform JSON response helper
+    function json(status, body) {
+      return {
+        status,
+        headers: { 'Content-Type': 'application/json' },
+        jsonBody: body
+      };
+    }
     try {
       // Simple health check
       return json(200, {
@@ -22,12 +30,3 @@ app.http('health', {
     }
   }
 });
-
-// uniform JSON response helper
-function json(status, body) {
-  return {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-    jsonBody: body
-  };
-}

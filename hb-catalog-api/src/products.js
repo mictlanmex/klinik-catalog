@@ -117,6 +117,14 @@ app.http('products', {
   authLevel: 'anonymous', // temporal; luego protegemos con AAD
   route: 'products',
   handler: async (req, ctx) => {
+    // Helper de respuesta JSON
+    function json(status, body) {
+      return {
+        status,
+        headers: { 'Content-Type': 'application/json' },
+        jsonBody: body
+      };
+    }
     try {
       // Validación de configuración
       if (!SHOP || !TOKEN || !CLINIC_LOCATION_ID) {
@@ -191,12 +199,3 @@ app.http('products', {
     }
   }
 });
-
-// Helper de respuesta JSON
-function json(status, body) {
-  return {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-    jsonBody: body
-  };
-}

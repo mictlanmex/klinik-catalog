@@ -20,11 +20,9 @@ jobs:
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-    - name: Deploy Function (remote build + funcignore)
+    - name: 🚀 Deploy Azure Function App
       uses: azure/functions-action@v1
       with:
-        app-name: hb-catalog-api-7856
-        package: ./hb-catalog-api
-        respect-funcignore: true
-        scm-do-build-during-deployment: true
-        enable-oryx-build: true
+       app-name: hb-catalog-api-7856
+       package: ./hb-catalog-api
+       enable-oryx-build: true
