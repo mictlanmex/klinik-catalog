@@ -26,7 +26,7 @@ export default function App() {
       // Get the auth token
       const authRes = await fetch('/.auth/me');
       const authData = await authRes.json();
-      const token = authData.clientPrincipal.idToken;
+      const token = authData.clientPrincipal.accessToken;
 
       const url = `${API_BASE}/api/products?${qs}`
       const res = await fetch(url, {
