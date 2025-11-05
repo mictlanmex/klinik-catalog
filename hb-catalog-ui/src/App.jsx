@@ -1,11 +1,25 @@
 import { useEffect, useMemo, useState } from 'react'
+import { msal, loginRequest } from "./auth";
 
 const API_BASE = import.meta.env.VITE_API_BASE
+
+async function apiFetch(url, options={}) {
+  const account = msal.getActiveAccount() || msal.getAllAccounts()[0];
+  const resp = await msal.acquireTokenSilent({ ...loginRequest, account })
+    .catch(() => msal.acquireTokenPopup(loginRequest));
+  const token = resp.accessToken;
+
+  const headers = new Headers(options.headers || {});
+  headers.set("Authorization", `Bearer ${token}`);
+
+  return fetch(url, { ...options, headers });
+}
 
 export default function App() {
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [isReady, setIsReady] = useState(false);
   const [query, setQuery] = useState('')
   const [cursor, setCursor] = useState(null)
   const [hasNext, setHasNext] = useState(false)
@@ -23,7 +37,7 @@ export default function App() {
     try {
       setLoading(true); setError('')
       const url = `${API_BASE}/api/products?${qs}`
-      const res = await fetch(url)
+      const res = await apiFetch(url)
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json()
       setHasNext(!!data?.pageInfo?.hasNextPage)
@@ -37,10 +51,30 @@ export default function App() {
     }
   }
 
-  // 👇 ahora solo se llama cuando refreshKey cambia, no cuando cursor cambia
+  // Ensure user is logged in
   useEffect(() => {
-    fetchData(true)
-  }, [refreshKey]) 
+    async function ensureLogin() {
+      const accounts = msal.getAllAccounts();
+      if (accounts.length === 0) {
+        try {
+          await msal.loginPopup(loginRequest);
+        } catch (e) {
+          setError("Login failed. Please try again.");
+          return;
+        }
+      }
+      msal.setActiveAccount(msal.getAllAccounts()[0]);
+      setIsReady(true);
+    }
+    ensureLogin();
+  }, []);
+
+  // Fetch data only when ready and refreshKey changes
+  useEffect(() => {
+    if (isReady) {
+      fetchData(true)
+    }
+  }, [isReady, refreshKey]) 
 
   const handleSearch = () => {
     setCursor(null)
@@ -68,15 +102,16 @@ export default function App() {
       </header>
 
       {error && <div className="error">Error: {error}</div>}
-      {loading && <div className="loading">Cargando…</div>}
+      {!isReady && !error && <div className="loading">Iniciando sesión…</div>}
+      {isReady && loading && <div className="loading">Cargando…</div>}
 
-      <div className="grid">
+      {isReady && <div className="grid">
         {items.map(p => (
           <ProductCard key={p.id} product={p} />
         ))}
-      </div>
+      </div>}
 
-      {hasNext && (
+      {isReady && hasNext && (
         <div className="pagination">
           <button onClick={() => fetchData(false)} disabled={loading}>
             {loading ? 'Cargando…' : 'Cargar más'}
