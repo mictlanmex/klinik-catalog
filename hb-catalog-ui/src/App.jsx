@@ -57,7 +57,7 @@ export default function App() {
       const accounts = msal.getAllAccounts();
       if (accounts.length === 0) {
         try {
-          await msal.loginPopup(loginRequest);
+          await msal.loginRedirect(loginRequest);
         } catch (e) {
           setError("Login failed. Please try again.");
           return;
