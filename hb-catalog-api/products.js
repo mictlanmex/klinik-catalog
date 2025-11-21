@@ -38,15 +38,41 @@ function buildProductQuery({ query }) {
 
   if (!terms.length) return 'status:active';
 
+  // Normaliza cada término para búsqueda flexible (sin acentos, minúsculas)
+  const normalizedTerms = terms.map(term => norm(term));
+  
   // Busca cada término en title/vendor/tag con prefijo
-  const parts = terms.map(term => {
+  // Usa términos normalizados para mejor coincidencia
+  const parts = normalizedTerms.map(term => {
     // IMPORTANTE: Shopify search no admite comillas ni caracteres raros tal cual;
-    // si quieres endurecer, aquí podrías sanear más el término.
-    return `(title:${term}* OR vendor:${term}* OR tag:${term}*)`;
+    // Sanitiza caracteres especiales
+    const sanitized = term.replace(/[^a-z0-9]/g, '');
+    return `(title:${sanitized}* OR vendor:${sanitized}* OR tag:${sanitized}*)`;
   });
 
   parts.push(`status:active`);
   return parts.join(' AND ');
+}
+
+// Verifica si un texto contiene el término de búsqueda (parcial, sin acentos)
+function matchesSearch(text, searchTerms) {
+  if (!searchTerms || searchTerms.length === 0) return true;
+  const normalizedText = norm(text);
+  
+  // Verifica que TODOS los términos estén presentes (pueden ser parciales)
+  return searchTerms.every(term => normalizedText.includes(term));
+}
+
+// Verifica si algún tag coincide con los términos de búsqueda
+function matchesAnyTag(tags, searchTerms) {
+  if (!searchTerms || searchTerms.length === 0) return true;
+  if (!Array.isArray(tags) || tags.length === 0) return false;
+  
+  // Verifica si algún tag contiene alguno de los términos
+  return tags.some(tag => {
+    const normalizedTag = norm(tag);
+    return searchTerms.some(term => normalizedTag.includes(term));
+  });
 }
 
 // Ejecuta una consulta GraphQL al Admin API de Shopify (con fallback a node-fetch si hace falta)
@@ -156,12 +182,29 @@ app.http('products', {
       const nodes = data?.products?.nodes || [];
       const pageInfo = data?.products?.pageInfo || { hasNextPage: false, endCursor: null };
 
+      // Preparar términos de búsqueda normalizados para filtrado adicional
+      const searchTerms = query
+        ? query.split(' ').map(t => norm(t.trim())).filter(Boolean)
+        : [];
+
       // Filtrar: solo variantes con stock disponible en la clínica
       const items = [];
       for (const p of nodes) {
         // Skip PLV provider products
         if (norm(p.vendor) === 'plv') {
           continue;
+        }
+        
+        // Filtrado flexible adicional: verifica coincidencias parciales en título, vendor o tags
+        if (searchTerms.length > 0) {
+          const matchesTitle = matchesSearch(p.title, searchTerms);
+          const matchesVendor = matchesSearch(p.vendor, searchTerms);
+          const matchesTags = matchesAnyTag(p.tags, searchTerms);
+          
+          // Si no coincide con ninguno, saltar este producto
+          if (!matchesTitle && !matchesVendor && !matchesTags) {
+            continue;
+          }
         }
         
         const isTopDoctor = (p.tags || []).map(norm).includes(norm(TOP_TAG));
