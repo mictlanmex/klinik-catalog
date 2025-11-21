@@ -25,14 +25,22 @@ export default function App() {
   const [cursor, setCursor] = useState(null)
   const [hasNext, setHasNext] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
+  const [isFirstLoad, setIsFirstLoad] = useState(true)
 
   const qs = useMemo(() => {
     const p = new URLSearchParams()
-    p.set('first', '20')
-    if (query) p.set('query', query)
+    p.set('first', '50') // Increased from 20 to 50 for better UX
+    
+    // On first load with no search query, default to "topdoctores"
+    if (isFirstLoad && !query) {
+      p.set('query', 'topdoctores')
+    } else if (query) {
+      p.set('query', query)
+    }
+    
     if (cursor) p.set('after', cursor)
     return p.toString()
-  }, [query, cursor])
+  }, [query, cursor, isFirstLoad])
 
   async function fetchData(reset = false) {
     try {
@@ -100,6 +108,7 @@ export default function App() {
   }, [isReady, isAuthenticated, refreshKey])
 
   const handleSearch = () => {
+    setIsFirstLoad(false) // Mark that user has performed a search
     setCursor(null)
     setItems([])
     setHasNext(false)
