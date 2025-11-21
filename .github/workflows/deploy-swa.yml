@@ -30,10 +30,11 @@ jobs:
         with:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
           action: "upload"
-          app_location: "hb-catalog-ui"        # 👈 carpeta del frontend
-          output_location: "dist"              # 👈 salida de Vite
-          api_location: ""                     # sin API aquí
+          app_location: "hb-catalog-ui"
+          output_location: "dist"
+          api_location: ""
         env:
           VITE_API_BASE: ${{ secrets.VITE_API_BASE }}
-          # NO pongas skip_app_build: true
-          # (si lo pones, también debes proveer app_artifact_location con archivos ya compilados)
+          VITE_AZURE_CLIENT_ID: ${{ secrets.VITE_AZURE_CLIENT_ID }}
+          VITE_AZURE_TENANT_ID: ${{ secrets.VITE_AZURE_TENANT_ID }}
+          VITE_AZURE_API_SCOPE: ${{ secrets.VITE_AZURE_API_SCOPE }}

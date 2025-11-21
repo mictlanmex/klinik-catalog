@@ -1,29 +1,30 @@
 import { useEffect, useMemo, useState } from 'react'
-import { msal, loginRequest } from "./auth";
+import { msal, loginRequest, initializeMsal, getAccessToken } from "./auth";
 
 const API_BASE = import.meta.env.VITE_API_BASE
 
-async function apiFetch(url, options={}) {
-  const account = msal.getActiveAccount() || msal.getAllAccounts()[0];
-  const resp = await msal.acquireTokenSilent({ ...loginRequest, account })
-    .catch(() => msal.acquireTokenPopup(loginRequest));
-  const token = resp.accessToken;
-
-  const headers = new Headers(options.headers || {});
-  headers.set("Authorization", `Bearer ${token}`);
-
-  return fetch(url, { ...options, headers });
+async function apiFetch(url, options = {}) {
+  try {
+    const token = await getAccessToken();
+    const headers = new Headers(options.headers || {});
+    headers.set("Authorization", `Bearer ${token}`);
+    return fetch(url, { ...options, headers });
+  } catch (error) {
+    console.error("Error getting access token:", error);
+    throw error;
+  }
 }
 
 export default function App() {
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [isReady, setIsReady] = useState(false);
+  const [isReady, setIsReady] = useState(false)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [query, setQuery] = useState('')
   const [cursor, setCursor] = useState(null)
   const [hasNext, setHasNext] = useState(false)
-  const [refreshKey, setRefreshKey] = useState(0) // 👈 nuevo
+  const [refreshKey, setRefreshKey] = useState(0)
 
   const qs = useMemo(() => {
     const p = new URLSearchParams()
@@ -35,83 +36,128 @@ export default function App() {
 
   async function fetchData(reset = false) {
     try {
-      setLoading(true); setError('')
+      setLoading(true)
+      setError('')
       const url = `${API_BASE}/api/products?${qs}`
       const res = await apiFetch(url)
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      if (!res.ok) {
+        const errorText = await res.text()
+        throw new Error(`HTTP ${res.status}: ${errorText}`)
+      }
       const data = await res.json()
       setHasNext(!!data?.pageInfo?.hasNextPage)
       if (reset) setItems(data.items || [])
       else setItems(prev => [...prev, ...(data.items || [])])
       setCursor(data?.pageInfo?.endCursor || null)
     } catch (e) {
+      console.error("Fetch error:", e)
       setError(e.message || String(e))
     } finally {
       setLoading(false)
     }
   }
 
-  // Ensure user is logged in
+  // Initialize MSAL and handle authentication
   useEffect(() => {
-    async function ensureLogin() {
-      const accounts = msal.getAllAccounts();
-      if (accounts.length === 0) {
-        try {
-          await msal.loginRedirect(loginRequest);
-        } catch (e) {
-          setError("Login failed. Please try again.");
-          return;
+    async function initialize() {
+      try {
+        // Initialize MSAL (handles redirect if present)
+        await initializeMsal();
+        
+        // Check if user is authenticated
+        const accounts = msal.getAllAccounts();
+        
+        if (accounts.length === 0) {
+          // No user logged in, trigger login
+          try {
+            await msal.loginRedirect(loginRequest);
+            // Execution stops here, user will be redirected
+          } catch (loginError) {
+            console.error("Login redirect failed:", loginError);
+            setError("No se pudo iniciar sesión. Por favor intente nuevamente.");
+            setIsReady(true);
+          }
+        } else {
+          // User is authenticated
+          setIsAuthenticated(true);
+          setIsReady(true);
         }
+      } catch (initError) {
+        console.error("MSAL initialization error:", initError);
+        setError("Error al inicializar la autenticación. Por favor recargue la página.");
+        setIsReady(true);
       }
-      msal.setActiveAccount(msal.getAllAccounts()[0]);
-      setIsReady(true);
     }
-    ensureLogin();
+    
+    initialize();
   }, []);
 
-  // Fetch data only when ready and refreshKey changes
+  // Fetch data when authenticated and ready
   useEffect(() => {
-    if (isReady) {
+    if (isReady && isAuthenticated) {
       fetchData(true)
     }
-  }, [isReady, refreshKey]) 
+  }, [isReady, isAuthenticated, refreshKey])
 
   const handleSearch = () => {
     setCursor(null)
     setItems([])
     setHasNext(false)
-    setRefreshKey(x => x + 1) // 👈 fuerza recarga limpia sin loop
+    setRefreshKey(x => x + 1)
   }
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter') {
-      handleSearch();
+      handleSearch()
     }
+  }
+
+  // Show loading while initializing or redirecting to login
+  if (!isReady) {
+    return (
+      <div className="app">
+        <div className="loading">Iniciando sesión…</div>
+      </div>
+    )
+  }
+
+  // Show error if authentication failed
+  if (error && !isAuthenticated) {
+    return (
+      <div className="app">
+        <div className="error">Error: {error}</div>
+        <button onClick={() => window.location.reload()}>Reintentar</button>
+      </div>
+    )
   }
 
   return (
     <div className="app">
       <header className="toolbar">
- <img src="/haut-logo.png" alt="Haut Boutique" className="logo" />
-
-  <h1>Catálogo Haut Klinik</h1>
+        <img src="/haut-logo.png" alt="Haut Boutique" className="logo" />
+        <h1>Catálogo Haut Klinik</h1>
         <div className="filters">
-          <input placeholder="Buscar por producto, marca o problema" value={query} onChange={e => setQuery(e.target.value)} onKeyDown={handleKeyDown} style={{minWidth: '300px'}} />
+          <input
+            placeholder="Buscar por producto, marca o problema"
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            onKeyDown={handleKeyDown}
+            style={{ minWidth: '300px' }}
+          />
           <button onClick={handleSearch}>Buscar</button>
         </div>
       </header>
 
       {error && <div className="error">Error: {error}</div>}
-      {!isReady && !error && <div className="loading">Iniciando sesión…</div>}
-      {isReady && loading && <div className="loading">Cargando…</div>}
+      {loading && <div className="loading">Cargando…</div>}
 
-      {isReady && <div className="grid">
+      <div className="grid">
         {items.map(p => (
           <ProductCard key={p.id} product={p} />
         ))}
-      </div>}
+      </div>
 
-      {isReady && hasNext && (
+      {hasNext && (
         <div className="pagination">
           <button onClick={() => fetchData(false)} disabled={loading}>
             {loading ? 'Cargando…' : 'Cargar más'}
