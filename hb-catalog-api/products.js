@@ -159,6 +159,11 @@ app.http('products', {
       // Filtrar: solo variantes con stock disponible en la clínica
       const items = [];
       for (const p of nodes) {
+        // Skip PLV provider products
+        if (norm(p.vendor) === 'plv') {
+          continue;
+        }
+        
         const isTopDoctor = (p.tags || []).map(norm).includes(norm(TOP_TAG));
         const variants = [];
 
